@@ -1,0 +1,106 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2907
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\expandedcolortbl;;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww12720\viewh7800\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\pardirnatural\partightenfactor0
+
+\f0\fs24 \cf0 -- 01_cleaning.sql\
+-- Olist project: data checks and cleaning\
+-- Run: duckdb olist.duckdb, then  .read sql/01_cleaning.sql\
+\
+-- 1. Orders overview: row count, date range, status counts\
+SELECT COUNT(*) AS total_orders FROM orders;                 -- 99441\
+\
+SELECT MIN(order_purchase_timestamp) AS first_order,\
+       MAX(order_purchase_timestamp) AS last_order\
+FROM orders;                                                 -- 2016-09-04 to 2018-10-17\
+\
+SELECT order_status, COUNT(*) AS n\
+FROM orders\
+GROUP BY order_status\
+ORDER BY n DESC;                                             -- delivered 96478 is ~97%\
+\
+-- 2. customer_id vs customer_unique_id\
+-- customer_id is new for every order; customer_unique_id identifies the person.\
+-- Always count customers with customer_unique_id.\
+SELECT COUNT(*) AS total_rows,\
+       COUNT(DISTINCT customer_id) AS distinct_customer_id,\
+       COUNT(DISTINCT customer_unique_id) AS distinct_unique_ids\
+FROM customers;                                              -- 99441, 99441, 96096\
+\
+-- 3. Is order_id unique in orders?\
+SELECT COUNT(*) AS total_rows,\
+       COUNT(order_id) AS non_null_ids,\
+       COUNT(DISTINCT order_id) AS distinct_order_ids\
+FROM orders;                                                 -- all 99441\
+\
+-- 4. Column types (all five date columns are TIMESTAMP)\
+DESCRIBE orders;\
+\
+-- 5. Missing delivery date by order status\
+-- Decision: for delivery-delay analysis, exclude orders without a delivery date\
+-- (8 delivered orders, 6 canceled orders have odd dates).\
+SELECT order_status,\
+       COUNT(*) AS total_num,\
+       COUNT(order_delivered_customer_date) AS has_delivery_date,\
+       COUNT(*) - COUNT(order_delivered_customer_date) AS missing_delivery_date\
+FROM orders\
+GROUP BY order_status\
+ORDER BY total_num DESC;\
+\
+-- 6. How many reviews does each order have?\
+WITH per_order AS (\
+  SELECT order_id, COUNT(*) AS review_count\
+  FROM reviews\
+  GROUP BY order_id\
+)\
+SELECT review_count, COUNT(*) AS n_orders\
+FROM per_order\
+GROUP BY review_count\
+ORDER BY review_count;                                       -- 1: 98126, 2: 543, 3: 4\
+\
+-- 7. Does any review have an empty score?\
+SELECT COUNT(*) AS total_reviews,\
+       COUNT(review_score) AS reviews_with_score\
+FROM reviews;                                                -- equal, so no empty scores\
+\
+-- 8. One average score per order (fixes the multi-review duplicates)\
+CREATE OR REPLACE VIEW average_score AS\
+SELECT order_id,\
+       AVG(review_score) AS avg_score\
+FROM reviews\
+GROUP BY order_id;\
+\
+SELECT COUNT(*) AS n_rows,\
+       COUNT(DISTINCT order_id) AS n_orders\
+FROM average_score;                                          -- both 98673\
+\
+-- 9. Orders without any review\
+WITH summary AS (\
+  SELECT COUNT(*) AS total_orders,\
+         COUNT(*) - COUNT(avg_s.avg_score) AS no_review_count\
+  FROM orders AS o\
+  LEFT JOIN average_score AS avg_s\
+    ON o.order_id = avg_s.order_id\
+)\
+SELECT total_orders,\
+       no_review_count,\
+       ROUND(100.0 * no_review_count / total_orders, 2) AS pct_no_review\
+FROM summary;                                                -- 768 orders, 0.77%\
+\
+-- 10. Repeat customers\
+WITH per_customer AS (\
+  SELECT customer_unique_id, COUNT(*) AS n_orders\
+  FROM customers\
+  GROUP BY customer_unique_id\
+),\
+summary AS (\
+  SELECT COUNT(*) AS total_customers,\
+         COUNT(*) FILTER (WHERE n_orders > 1) AS repeat_customers\
+  FROM per_customer\
+)\
+SELECT total_customers,\
+       repeat_customers,\
+       ROUND(100.0 * repeat_customers / total_customers, 2) AS pct_repeat\
+FROM summary;                                                -- 2997 of 96096, about 3.1%}
