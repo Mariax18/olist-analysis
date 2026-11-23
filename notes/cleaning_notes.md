@@ -13,3 +13,8 @@
 
 - درآمد = جمع price سفارش‌های delivered (بدون freight_value)
 - canceled و unavailable درآمد حساب نمی‌شن (حدود ۰٫۷٪ فروش)
+## Known gaps (to finish later)
+- Per-category review score (top categories), query drafted but not run
+- Repeat-purchase rate over time (only the overall 3.1% is done)
+- Incomplete 2016 and late-2018 months: still a hypothesis
+- Cohort analysis: optional, skipped

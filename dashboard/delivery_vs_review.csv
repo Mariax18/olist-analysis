@@ -1,0 +1,4 @@
+delivery_group,orders_count,avg_review
+on_time,88163,4.29
+late_over_7_days,2781,1.7
+late_up_to_7_days,4880,3.06
