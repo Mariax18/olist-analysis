@@ -24,3 +24,16 @@ FROM orders AS o
 JOIN order_items AS o_i ON o.order_id = o_i.order_id
 GROUP BY o.order_status
 ORDER BY total_price DESC;
+
+-- 4. Monthly delivered orders, revenue and AOV (Jan 2017 to Aug 2018)
+SELECT date_trunc('month', o.order_purchase_timestamp) AS month,
+       COUNT(DISTINCT o.order_id) AS orders_count,
+       SUM(o_i.price) AS revenue,
+       ROUND(SUM(o_i.price) / COUNT(DISTINCT o.order_id), 2) AS aov
+FROM orders AS o
+JOIN order_items AS o_i ON o.order_id = o_i.order_id
+WHERE o.order_status = 'delivered'
+  AND o.order_purchase_timestamp >= '2017-01-01'
+  AND o.order_purchase_timestamp < '2018-09-01'
+GROUP BY month
+ORDER BY month;
