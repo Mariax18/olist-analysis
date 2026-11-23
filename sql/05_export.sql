@@ -1,7 +1,7 @@
 -- 05_export.sql: small aggregated tables for the dashboard
 
 COPY (
-  SELECT date_trunc('month', o.order_purchase_timestamp) AS month,
+  SELECT strftime(date_trunc('month', o.order_purchase_timestamp), '%Y-%m') AS month,
          COUNT(DISTINCT o.order_id) AS orders_count,
          ROUND(SUM(o_i.price), 2) AS revenue,
          ROUND(SUM(o_i.price) / COUNT(DISTINCT o.order_id), 2) AS aov
